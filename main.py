@@ -13,12 +13,13 @@ from langchain.chat_models import ChatOpenAI
 from langchain.utilities.dataforseo_api_search import DataForSeoAPIWrapper
 from langchain_core.runnables import RunnablePassthrough
 from langchain.schema import StrOutputParser
+from langchain.schema import SystemMessage
 
 os.environ["DATAFORSEO_LOGIN"] = "danurahul17@gmail.com"
 os.environ["DATAFORSEO_PASSWORD"] = "8fa39b9c069ca970"
 
 wrapper = DataForSeoAPIWrapper()
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = "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"
 os.environ[
     "SERPAPI_API_KEY"
 ] = "2c28be3a45d3a3927a9b9f6c59f31c323c7f7cac43c0b9112888e9c2b2eb626b"
@@ -27,13 +28,13 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-Title = "yoga"
-Seo_keywords = "isha sadhguru"
+Title = "EU agreement on AI law"
+Seo_keywords = "EU agreement on AI law"
 live_search = True
 language = "english"
-article_lenght = 500
-Faq = True
-Generate_lists = True
+article_lenght = 1000
+Faq = False
+Generate_lists = False
 tone = "professional"
 
 
@@ -51,17 +52,28 @@ def get_blog_chain():
             name="Search",
             func=Search.run,
             description="useful for when you need to answer questions about current events. You should ask targeted questions",
-        ),
-        Tool(
-            name="google-seo-answer",
-            description="My new seo tool",
-            func=Seo.run,
-        ),
+        )
     ]
 
-    llm = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0613")
+    llm = ChatOpenAI(temperature=0, model="gpt-4-1106-preview")
     agent_executor = initialize_agent(
-        tools, llm, agent=AgentType.OPENAI_FUNCTIONS, verbose=True
+        tools,
+        llm,
+        agent=AgentType.OPENAI_FUNCTIONS,
+        verbose=True,
+        agent_kwargs={
+            "system_message": SystemMessage(
+                content="""You are a world class resercher, who can do detailed research on any topic and produce facts based results; you do not make things up, you will try as har as possible to gather facts and data to back up the research.
+
+please make sure you complete the objective above with the followin rules:
+1/ you should do enough research to gather as much information as possible about the objective
+2/ if there are url of relvent links & articles, you will scrap it to gather more information
+3/ after scraping & search, you should think "is there any new things i should search and scraping based on the data i collected to increase research quality?" if answer is yes, continue; But don't do this more than 3 iterations
+4/ you should not make things up, you should only write facts and data that you have gathered
+5/ in the final output, you should include all refrence data & links to back up your research; you should include all refrence data & links to back up your research
+6/ Do not use G2, or linkedin, they are mostly outdated data."""
+            )
+        },
     )
 
     table_content_chain = (
@@ -72,9 +84,11 @@ def get_blog_chain():
     content_chain = (
         [
             content_prompt
-            + "also Bullet points and Lists are included where appropriate:"
+            + f"- The length of the blog post should be roughly {article_lenght} words:"
+            + "- Bullet points and Lists are included where appropriate:"
             if Generate_lists
             else content_prompt
+            + f"- The length of the blog post should be roughly {article_lenght} words:"
         ][0]
         | llm
         | StrOutputParser()
@@ -111,7 +125,6 @@ if __name__ == "__main__":
                 else research_data["output"]
             }
         )
-        print(blog_text)
     else:
         blog_text = chain.invoke(
             {
